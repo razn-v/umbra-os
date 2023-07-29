@@ -1,0 +1,3 @@
+qemu-system-x86_64 -m 512M -s -device pvpanic -serial stdio -enable-kvm -d cpu_reset -hda image.hdd & 
+vncviewer :5900
+wait
