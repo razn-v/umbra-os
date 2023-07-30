@@ -62,7 +62,6 @@ disk: $(BUILD_DIR)/$(TARGET)
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
 		iso_root -o $(IMAGE_FILE)
 	$(LIMINE_DIR)/limine.exe bios-install $(IMAGE_FILE)
-	rm -rf iso_root
 
 run:
 	-killall qemu-system-x86_64

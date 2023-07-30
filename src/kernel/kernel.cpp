@@ -103,17 +103,17 @@ extern "C" void _start(void) {
     // Initialize the PMM, VMM and the heap
     Pmm::init(memmap_request.response);
     Terminal::printf("{green}[*]{white} PMM initialized.\n");
-    Vmm::init();
-    Terminal::printf("{green}[*]{white} VMM initialized.\n");
     Heap::init();
     Terminal::printf("{green}[*]{white} Heap allocator initialized.\n");
+    Vmm::init();
+    Terminal::printf("{green}[*]{white} VMM initialized.\n");
 
     Vfs::mount('A', new Tmpfs);
     Initramfs::init('A');
     Vfs::print_tree(Vfs::get_mountpoint('A'));
 
     // Testing if ELFs are working properly
-    uint64_t* page_map = Vmm::new_space();
+    Vmm::AddressSpace* space = Vmm::new_space();
     Elf64_Ehdr header;
     auto fd = Vfs::open('A', "test", Vfs::OpenMode::ReadOnly);
     Vfs::read(fd, &header, sizeof(header));
@@ -135,8 +135,8 @@ extern "C" void _start(void) {
                 void* phys = Pmm::calloc(pages);
 
                 // FIXME This shouldn't be RW or executable in all cases
-                Vmm::map_range(page_map, program_header.p_vaddr, (uintptr_t)phys, pages,
-                        PTE_PRESENT | PTE_WRITABLE | PTE_USER);
+                space->map_range(program_header.p_vaddr, (uintptr_t)phys, pages, PTE_PRESENT | 
+                        PTE_WRITABLE | PTE_USER);
                 void* virt = (void*)PHYS_TO_VIRT((uintptr_t)phys);
 
                 Vfs::seek_read(fd, program_header.p_offset, Vfs::SeekMode::Set);
@@ -151,7 +151,7 @@ extern "C" void _start(void) {
 
     Vfs::close(fd);
 
-    auto elf_test = Task::create("test", (void(*)())header.e_entry, true, page_map);
+    auto elf_test = Task::create("test", (void(*)())header.e_entry, true, space);
 
     // TODO: This shouldn't be here
     memset(&tss, 0, sizeof(Tss)); 

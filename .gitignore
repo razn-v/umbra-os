@@ -32,5 +32,6 @@
 *.app
 
 build/
+iso_root/
 *.iso
 TODO.md

@@ -8,7 +8,7 @@
 // Always incremented
 static size_t next_pid = 0;
 
-Task* Task::create(const char* name, void (*entry)(), bool user_mode, uint64_t* page_map) {
+Task* Task::create(const char* name, void (*entry)(), bool user_mode, Vmm::AddressSpace* page_map) {
     Task* task = new Task;
     task->pid = next_pid++;
     task->status = Task::Status::Ready;
@@ -20,7 +20,7 @@ Task* Task::create(const char* name, void (*entry)(), bool user_mode, uint64_t* 
 
     if (user_mode) {
         uintptr_t phys_stack = (uintptr_t)Pmm::alloc(STACK_SIZE / PAGE_SIZE);
-        Vmm::map_range(task->address_space, USER_STACK_BASE - STACK_SIZE, phys_stack,
+        task->address_space->map_range(USER_STACK_BASE - STACK_SIZE, phys_stack, 
                 STACK_SIZE / PAGE_SIZE, PTE_PRESENT | PTE_WRITABLE | PTE_NX | PTE_USER);
         task->context->iret_rsp = USER_STACK_BASE;
 
@@ -44,7 +44,10 @@ Task* Task::create(const char* name, void (*entry)(), bool user_mode, uint64_t* 
 }
 
 Task::~Task() {
+    // Free the stack
+    Pmm::free((void*)this->address_space->virt_to_phys(USER_STACK_BASE - STACK_SIZE), 
+            STACK_SIZE / PAGE_SIZE);
+
     delete this->address_space;
     delete this->context;
-    // TODO Free the stack
 }
