@@ -1,6 +1,6 @@
 CXX=clang
-CXX_FLAGS=-c -target x86_64-none-elf -Isrc -Ivendor -std=c++20 -g -mno-red-zone -mno-80387 \
-		  -mno-mmx -mno-3dnow -mno-sse -mno-sse2 -mcmodel=kernel -fno-stack-protector \
+CXX_FLAGS=-D KERNEL -c -target x86_64-none-elf -Isrc -Ivendor -std=c++20 -g -mno-red-zone \
+		  -mno-80387 -mno-mmx -mno-3dnow -mno-sse -mno-sse2 -mcmodel=kernel -fno-stack-protector \
 		  -fno-omit-frame-pointer -Wall -Wextra -fno-rtti -fno-exceptions -fno-unwind-tables \
 		  -fno-asynchronous-unwind-tables -ffreestanding -nostdlib
 AS=nasm

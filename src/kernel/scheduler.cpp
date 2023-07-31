@@ -96,6 +96,10 @@ void add_task(Task* task) {
     queue.add_task(task);
 }
 
+Task* get_current_task() {
+    return current_task;
+}
+
 void sleep(uint64_t ms) {
     current_task->status = Task::Status::Waiting;
     current_task->tsc_sleep = __rdtsc() + Timer::ms_to_cycles(ms);

@@ -39,6 +39,7 @@ Task* Task::create(const char* name, void (*entry)(), bool user_mode, Vmm::Addre
     task->context->iret_flags = 0x202;
 
     strcpy(task->name, name);
+    task->events = new Ringbuffer<Keyboard::KeyboardEvent, 5>;
 
     return task;
 }

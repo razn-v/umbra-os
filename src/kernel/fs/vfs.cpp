@@ -6,6 +6,7 @@ namespace Vfs {
 
 static Node* mountpoints[26];
 
+// FIXME: Using a char for `device` sucks
 Node* get_mountpoint(char device) {
     return mountpoints[device - 'A'];
 }

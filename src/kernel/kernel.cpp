@@ -29,21 +29,6 @@ static void hcf(void) {
     }
 }
 
-void wait_func() {
-    Terminal::printf("#");
-    Scheduler::sleep(10 * 1000);
-    Terminal::printf("#");
-    Scheduler::kill_and_yield();
-}
-
-void wait2_func() {
-    while (true) {
-        Terminal::printf(".");
-        Scheduler::sleep(1 * 1000);
-    }
-    Scheduler::kill_and_yield();
-}
-
 // TODO: Move this somewhere else
 // Addresses of the interrupts handlers
 extern "C" uintptr_t int_handlers[256];

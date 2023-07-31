@@ -1,6 +1,8 @@
 #include <kernel/drivers/keyboard.hpp>
 #include <kernel/terminal.hpp>
 #include <kernel/io.hpp>
+#include <kernel/scheduler.hpp>
+#include <kernel/task.hpp>
 
 namespace Keyboard {
 
@@ -44,14 +46,19 @@ void handler([[gnu::unused]] Interrupt::Registers* regs) {
 
     KbKey key = code_to_key(keyboard.buffer);
     if (key.key_code == KeyCode::Invalid) {
-        Terminal::printf("Invalid key\n");
+        //Terminal::printf("Invalid key\n");
     } else if (key.key_code == KeyCode::LeftShift) {
         keyboard.modifiers_mask |= 1 << SHIFT_MASK;
     } else if (key.key_code == KeyCode::CapsLock) {
         if (keyboard.caps_lock_on()) keyboard.modifiers_mask &= ~(1 << CAPS_LOCK_MASK);
         else keyboard.modifiers_mask |= 1 << CAPS_LOCK_MASK;
     } else {
-        Terminal::printf("%c", !keyboard.uppercase() ? key.ascii : key.uppercase_ascii);
+        Task* current_task = Scheduler::get_current_task();
+        if (current_task != nullptr) {
+            char ascii = !keyboard.uppercase() ? key.ascii : key.uppercase_ascii;
+            current_task->events->write(KeyboardEvent(key.key_code, ascii));
+        }
+        //Terminal::printf("%c", !keyboard.uppercase() ? key.ascii : key.uppercase_ascii);
     }
 
     keyboard.clear();

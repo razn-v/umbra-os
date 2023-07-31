@@ -74,7 +74,7 @@ void init() {
     slab_512b = new_slab<512>();
 }
 
-void* kmalloc(size_t size) {
+[[gnu::malloc]] void* kmalloc(size_t size) {
     if (size <= 8) {
         return slab_8b->alloc(size); 
     } else if (size <= 16) {

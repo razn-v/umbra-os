@@ -2,6 +2,7 @@
 #include <kernel/terminal.hpp>
 #include <kernel/utils/optional.hpp>
 
+// TODO: Add destructor
 template <typename Value, size_t Capacity>
 class StringHashMap {
 public:

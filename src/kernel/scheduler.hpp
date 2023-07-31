@@ -85,6 +85,7 @@ void schedule(Interrupt::Registers* context);
 void yield();
 void kill_and_yield();
 void add_task(Task* task);
+Task* get_current_task();
 void sleep(uint64_t ms);
 
 }

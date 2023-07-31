@@ -1,5 +1,5 @@
 #include <kernel/syscalls/handler.hpp>
-#include <kernel/syscalls/syscalls.hpp>
+#include <kernel/api/syscalls.hpp>
 #include <kernel/terminal.hpp>
 
 namespace Syscall {
@@ -19,15 +19,6 @@ void handler(Interrupt::Registers* regs) {
     }
 
     handlers[regs->rdi](regs->rsi, regs->rdx, regs->rcx, regs->r8, regs->r9);
-
-    /*
-    if (regs->rdi == 0x1337) {
-        Scheduler::kill_and_yield();
-        __builtin_unreachable();
-    } else if(regs->rdi == 2) {
-        Terminal::printf("Machin\n");
-    }
-    */
 }
 
 }

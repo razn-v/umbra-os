@@ -1,3 +1,4 @@
+#include <kernel/libc/string.hpp>
 #include <stddef.h>
 #include <stdint.h>
 

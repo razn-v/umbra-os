@@ -1,3 +1,3 @@
 #include <stdint.h>
 
-[[gnu::noreturn]] uint64_t exit(uint64_t exit_code);
+[[gnu::noreturn]] void exit(int exit_code);

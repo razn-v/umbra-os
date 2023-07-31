@@ -1,8 +1,10 @@
-#include <kernel/syscalls/syscalls.hpp>
+#include <libc/stdlib.hpp>
 
 int main() {
-    syscall(SyscallCode::Test);
-    syscall(SyscallCode::Sleep, 5 * 1000);
-    syscall(SyscallCode::Test);
+    while (true) {
+        KeyboardEvent event = poll_event();
+        if (event.key_code == KeyCode::Invalid) continue;
+        putchar(event.ascii);
+    }
     return 0;
 }

@@ -19,7 +19,6 @@ namespace Pmm {
 
 void init(struct limine_memmap_response*);
 
-void* inner_alloc(size_t pages, uint64_t limit);
 void* alloc(size_t pages);
 void* calloc(size_t pages);
 void free(void* addr, size_t pages);
