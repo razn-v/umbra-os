@@ -1,5 +1,6 @@
-#include <kernel/terminal.hpp>
 #include <kernel/gdt.hpp>
+
+namespace Idt {
 
 struct [[gnu::packed]] IdtEntry {
     uint16_t address_low;
@@ -23,6 +24,8 @@ struct [[gnu::packed]] IdtEntry {
 };
 
 extern "C" void idt_load(void const *idt);
+// Addresses of the interrupts handlers
+extern "C" uintptr_t int_handlers[256];
 
 struct [[gnu::packed]] IdtDesc {
     uint16_t limit;
@@ -33,9 +36,6 @@ struct [[gnu::packed]] IdtDesc {
     }
 };
 
-IdtEntry idt_entries[256] = {};
+void init();
 
-IdtDesc idt = {
-    .limit = 0xfff,
-    .base = (uintptr_t)idt_entries
-};
+}

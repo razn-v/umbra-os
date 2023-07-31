@@ -6,7 +6,7 @@
 
 namespace Keyboard {
 
-struct KbKey {
+struct Key {
     // We only support scan code set 1 for now, so no kernel-specific scancode
     KeyCode key_code;
     // ASCII representation of the key
@@ -14,17 +14,17 @@ struct KbKey {
     // ASCII representation of the key when Shift is pressed or Caps Lock is enabled
     char uppercase_ascii;
 
-    constexpr KbKey(uint64_t scancode, char ascii, char uppercase_ascii) :
+    constexpr Key(uint64_t scancode, char ascii, char uppercase_ascii) :
         key_code((KeyCode)scancode), ascii(ascii), uppercase_ascii(uppercase_ascii) {};
 };
 
-#define KEY(id, scancode, ascii, uppercase_ascii) KbKey(scancode, ascii, uppercase_ascii),
-const KbKey keys[] {
+#define KEY(id, scancode, ascii, uppercase_ascii) Key(scancode, ascii, uppercase_ascii),
+const Key keys[] {
     KEYS
 };
 #undef KEY
 
-KbKey code_to_key(uint64_t scancode);
+Key code_to_key(uint64_t scancode);
 
 #define CTRL_MASK      0
 #define ALT_MASK       1

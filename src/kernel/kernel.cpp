@@ -1,26 +1,14 @@
-#include <kernel/requests.hpp>
-#include <stdint.h>
-#include <kernel/libc/string.hpp>
-#include <kernel/kernel.hpp>
 #include <kernel/gdt.hpp>
 #include <kernel/idt.hpp>
-#include <kernel/int.hpp>
 #include <kernel/terminal.hpp>
 #include <kernel/apic.hpp>
-#include <kernel/io.hpp>
 #include <kernel/memory/pmm.hpp>
 #include <kernel/memory/vmm.hpp>
 #include <kernel/memory/heap.hpp>
-#include <kernel/timer.hpp>
-#include <kernel/task.hpp>
 #include <kernel/scheduler.hpp>
-#include <kernel/lock.hpp>
-#include <kernel/fs/vfs.hpp>
 #include <kernel/fs/tmpfs.hpp>
 #include <kernel/fs/initramfs.hpp>
 #include <elf.h>
-
-// TODO remove useless includes
 
 // Halt and catch fire function.
 static void hcf(void) {
@@ -28,13 +16,6 @@ static void hcf(void) {
         asm volatile("hlt");
     }
 }
-
-// TODO: Move this somewhere else
-// Addresses of the interrupts handlers
-extern "C" uintptr_t int_handlers[256];
-
-// TODO: Move this somewhere else
-static Tss tss;
 
 // TODO: Move this somewhere else
 extern "C" void __cxa_pure_virtual() {
@@ -55,30 +36,12 @@ extern "C" void _start(void) {
     Terminal::printf("UmbraOS * build %s %s\n", __DATE__, __TIME__);
 
     Interrupt::init();
+    Terminal::printf("{green}[*]{white} Interrupt handlers initialized.\n");
 
-    // TODO: Why not make this `Gdt::load()`?
-    gdt.load();
+    Gdt::load();
     Terminal::printf("{green}[*]{white} GDT loaded.\n");
 
-    // TODO: This shouldn't be here
-    // Setup each of entry of the IDT
-    for (int i = 0; i < 256; i++) {
-        if (i == SYSCALL_VECT) {
-            // Type: 0b1110 (interrupt gate)
-            // Reserved: 0b0
-            // DPL: 0b11
-            // Present: 0b1
-            idt_entries[i] = IdtEntry(int_handlers[i], 0b11101110);
-        } else {
-            // Type: 0b1110 (interrupt gate)
-            // Reserved: 0b0
-            // DPL: 0b00
-            // Present: 0b1
-            idt_entries[i] = IdtEntry(int_handlers[i], 0b10001110);
-        }
-    }
-    // TODO: Make this `Idt::load` too
-    idt.load();
+    Idt::init();
     Terminal::printf("{green}[*]{white} IDT loaded.\n");
 
     // Initialize local APIC
@@ -92,6 +55,8 @@ extern "C" void _start(void) {
     Terminal::printf("{green}[*]{white} Heap allocator initialized.\n");
     Vmm::init();
     Terminal::printf("{green}[*]{white} VMM initialized.\n");
+
+    Gdt::init_tss();
 
     Vfs::mount('A', new Tmpfs);
     Initramfs::init('A');
@@ -111,9 +76,6 @@ extern "C" void _start(void) {
         Vfs::read(fd, &program_header, sizeof(program_header));
 
         switch (program_header.p_type) {
-            case PT_NULL: {
-                break;
-            }
             case PT_LOAD: {
                 // FIXME: Do we have to account for misalignment?
                 size_t pages = ALIGN_UP(program_header.p_memsz, PAGE_SIZE) / PAGE_SIZE;
@@ -137,11 +99,6 @@ extern "C" void _start(void) {
     Vfs::close(fd);
 
     auto elf_test = Task::create("test", (void(*)())header.e_entry, true, space);
-
-    // TODO: This shouldn't be here
-    memset(&tss, 0, sizeof(Tss)); 
-    tss.rsp[0] = PHYS_TO_VIRT((uintptr_t)Pmm::alloc(STACK_SIZE / PAGE_SIZE) + STACK_SIZE);
-    init_tss(&tss);
 
     // Initialize the scheduler
     Scheduler::init();

@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+namespace Gdt {
+
 #define GDT_ENTRIES 7
 
 #define KERNEL_CS  0x08
@@ -102,10 +104,7 @@ static GdtEntry gdt_entries[GDT_ENTRIES] = {
     GdtEntry(0, 0, 0, 0),
 };
 
-static GdtDesc gdt = {
-    .limit = GDT_ENTRIES * sizeof(GdtEntry) - 1,
-    .address = (uintptr_t)gdt_entries
-};
+
 
 struct [[gnu::packed]] Tss {
     uint32_t : 32;
@@ -117,4 +116,7 @@ struct [[gnu::packed]] Tss {
     uint16_t io_bitmap_offset;
 };
 
-void init_tss(Tss* tss);
+void load();
+void init_tss();
+
+}

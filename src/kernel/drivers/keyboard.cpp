@@ -6,20 +6,16 @@
 
 namespace Keyboard {
 
-KbKey code_to_key(uint64_t scancode) {
-    for (const KbKey key : keys) {
+Key code_to_key(uint64_t scancode) {
+    for (const Key key : keys) {
         if ((uint64_t)key.key_code == scancode) {
             return key;
         }
     }
-    return KbKey(0, '?', '?');
+    return Key(0, '?', '?');
 }
 
-Keyboard keyboard = {
-    .buffer = 0,
-    .position = 0,
-    .modifiers_mask = 0
-};
+static Keyboard keyboard;
 
 void handler([[gnu::unused]] Interrupt::Registers* regs) {
     uint8_t scancode = IoPort::in_port<uint8_t>(0x60);
@@ -33,7 +29,7 @@ void handler([[gnu::unused]] Interrupt::Registers* regs) {
     // Check if we have a release key
     if ((scancode >> 7) & 1) {
         scancode &= ~(1 << 7);
-        KbKey key = code_to_key(scancode);
+        Key key = code_to_key(scancode);
 
         // Remove the shift key from the modifiers
         if (key.key_code == KeyCode::LeftShift) {
@@ -44,7 +40,7 @@ void handler([[gnu::unused]] Interrupt::Registers* regs) {
         return;
     }
 
-    KbKey key = code_to_key(keyboard.buffer);
+    Key key = code_to_key(keyboard.buffer);
     if (key.key_code == KeyCode::Invalid) {
         //Terminal::printf("Invalid key\n");
     } else if (key.key_code == KeyCode::LeftShift) {
