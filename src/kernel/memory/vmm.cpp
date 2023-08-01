@@ -176,7 +176,7 @@ void destroy_pml(uint64_t* pml, size_t start, size_t end, size_t level) {
         }
 
         // Destroy all entries of the PML
-        destroy_pml(pml, 0, 512, level - 1);
+        destroy_pml(next_pml, 0, 512, level - 1);
     }
 
     // A PML is always 1 page long
@@ -188,7 +188,6 @@ AddressSpace::~AddressSpace() {
 
     // Destroy the lower half of the mapping, because the higher half belongs to the kernel
     Vmm::destroy_pml(this->pml4, 0, 256, 4);
-    delete this;
 }
 
 }

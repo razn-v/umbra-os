@@ -51,4 +51,5 @@ Task::~Task() {
 
     delete this->address_space;
     delete this->context;
+    delete this->events;
 }

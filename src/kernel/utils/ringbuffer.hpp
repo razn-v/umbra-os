@@ -11,7 +11,7 @@ public:
     Ringbuffer() : data(new T[Size]), head(0), tail(0) {}
 
     ~Ringbuffer() {
-        delete this->data;
+        delete[] this->data;
     }
 
     void write(T item) {

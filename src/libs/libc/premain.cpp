@@ -17,8 +17,8 @@ extern "C" void pre_main() {
 
     int status = main();
     
-    for (Function* ctor = &fini_array_start; ctor != &fini_array_end; ctor++) {
-        (*ctor)();
+    for (Function* dtor = &fini_array_start; dtor != &fini_array_end; dtor++) {
+        (*dtor)();
     }   
 
     exit(status);
