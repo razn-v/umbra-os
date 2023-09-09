@@ -1,8 +1,8 @@
 CXX=clang
-CXX_FLAGS=-D KERNEL -c -target x86_64-none-elf -Isrc -Ivendor -std=c++20 -g -mno-red-zone \
+CXX_FLAGS=-c -target x86_64-none-elf -Isrc -Ivendor -std=c++20 -g -mno-red-zone \
 		  -mno-80387 -mno-mmx -mno-3dnow -mno-sse -mno-sse2 -mcmodel=kernel -fno-stack-protector \
 		  -fno-omit-frame-pointer -Wall -Wextra -fno-rtti -fno-exceptions -fno-unwind-tables \
-		  -fno-asynchronous-unwind-tables -ffreestanding -nostdlib
+		  -fno-asynchronous-unwind-tables -ffreestanding -nostdlib -D_GNU_SOURCE
 AS=nasm
 AS_FLAGS=-felf64
 LD=ld
@@ -14,6 +14,7 @@ FONTS_DIR=fonts
 TARGET=umbra.bin
 IMAGE_FILE=image.iso
 LIMINE_DIR=vendor/limine
+SYSROOT_DIR=sysroot
 
 SRCS=$(shell find $(SRC_DIR) -type f -name "*.cpp")
 SRCS_ASM=$(shell find $(SRC_DIR) -type f -name "*.asm")
@@ -50,6 +51,9 @@ $(BUILD_SUBDIRS):
 disk: $(BUILD_DIR)/$(TARGET) 
 	rm -rf iso_root
 	mkdir -p iso_root/EFI/BOOT
+	-mkdir base/usr
+	-cp -r $(SYSROOT_DIR)/usr/lib/ base/usr/
+	-cp $(SYSROOT_DIR)/x86_64-umbra/lib/libgcc_s.so.1 base/usr/lib/
 	cd base && tar cf ../iso_root/initramfs.tar *
 	cd ..
 	cp $(BUILD_DIR)/$(TARGET) \

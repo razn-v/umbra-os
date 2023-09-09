@@ -17,7 +17,7 @@ Slab<slab_size>* new_slab() {
     // Link each block to the next one
     size_t i;
     for (i = 0; i < slab->MAX_BLOCKS - 1; i++) {
-        slab->blocks[i].next = slab->blocks + i + 1;
+        slab->blocks[i].next = &slab->blocks[i + 1];
     }
     slab->blocks[i].next = nullptr;
 

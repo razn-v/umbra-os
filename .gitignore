@@ -33,5 +33,7 @@
 
 build/
 iso_root/
+sysroot/
+toolchain/
 *.iso
 TODO.md

@@ -27,6 +27,8 @@
 
 namespace Timer {
 
+void init();
+
 namespace Pit {
     void handler(Interrupt::Registers* regs);
 }
@@ -38,5 +40,6 @@ namespace Lapic {
 }
 
 uint64_t ms_to_cycles(uint64_t ms);
+uint64_t get_real_time();
 
 }

@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <limine/limine.h>
 #include <stdarg.h>
+#include <sys/types.h>
 
 #define BLACK Rgb(118, 118, 118)
 #define BLUE Rgb(59, 120, 255)
@@ -51,22 +52,26 @@ union Rgb {
 
 class Terminal {
 private:
-    limine_framebuffer *framebuffer;
     PsfFont *font;
 
     // Position of the last character written in the terminal
     uint8_t cursor_y, cursor_x;
 
     void put_char(char c, int cy, int cx, Rgb fg, Rgb bg);
-    void puts(const char* str, Rgb fg = WHITE, Rgb bg = Rgb(0, 0, 0));
     void vsprintf(char* dst, const char* format, va_list args);
 
     void scroll();
     void clear_screen();
  
 public:
+    limine_framebuffer *framebuffer;
+
     Terminal() = default;
 
     static void init(limine_framebuffer *framebuffer);
+    static uint32_t* get_framebuffer();
+    static uint64_t get_width();
+    static uint64_t get_height();
     static void printf(const char* format, ...);
+    static void puts(const char* str, ssize_t length = -1, Rgb fg = WHITE, Rgb bg = Rgb(0, 0, 0));
 };

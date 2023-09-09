@@ -1,0 +1,688 @@
+diff --git a/ci/umbra.cross-file b/ci/umbra.cross-file
+new file mode 100644
+index 00000000..67d1df33
+--- /dev/null
++++ b/ci/umbra.cross-file
+@@ -0,0 +1,12 @@
++[binaries]
++c = 'gcc-11'
++cpp = 'gcc-11'
++
++[properties]
++needs_exe_wrapper = true
++
++[host_machine]
++system = 'umbra'
++cpu_family = 'x86_64'
++cpu = 'x86_64'
++endian = 'little'
+diff --git a/meson.build b/meson.build
+index 12a74ae4..e7e9f1c3 100644
+--- a/meson.build
++++ b/meson.build
+@@ -154,6 +154,11 @@ elif host_machine.system() == 'dripos'
+ 	rtdl_include_dirs += include_directories('sysdeps/dripos/include')
+ 	libc_include_dirs += include_directories('sysdeps/dripos/include')
+ 	subdir('sysdeps/dripos')
++elif host_machine.system() == 'umbra'
++    disable_linux_option = true
++    rtdl_include_dirs += include_directories('sysdeps/umbra/include')
++    libc_include_dirs += include_directories('sysdeps/umbra/include')
++    subdir('sysdeps/umbra')
+ else
+ 	error('No sysdeps defined for OS: ' + host_machine.system())
+ endif
+diff --git a/sysdeps/umbra/crt-x86_64/crt0.S b/sysdeps/umbra/crt-x86_64/crt0.S
+new file mode 100755
+index 00000000..18d109e7
+--- /dev/null
++++ b/sysdeps/umbra/crt-x86_64/crt0.S
+@@ -0,0 +1,9 @@
++
++.section .text
++.global _start
++_start:
++    mov $main, %rdi
++    call __mlibc_entry
++
++.section .note.GNU-stack,"",%progbits
++
+diff --git a/sysdeps/umbra/generic/entry.cpp b/sysdeps/umbra/generic/entry.cpp
+new file mode 100755
+index 00000000..4b84b911
+--- /dev/null
++++ b/sysdeps/umbra/generic/entry.cpp
+@@ -0,0 +1,33 @@
++#include <stdint.h>
++#include <stdlib.h>
++#include <bits/ensure.h>
++#include <mlibc/elf/startup.h>
++
++// defined by the POSIX library
++void __mlibc_initLocale();
++
++extern "C" uintptr_t* __dlapi_entrystack();
++
++extern char** environ;
++static mlibc::exec_stack_data __mlibc_stack_data;
++
++struct LibraryGuard {
++	LibraryGuard();
++};
++
++static LibraryGuard guard;
++
++LibraryGuard::LibraryGuard() {
++	__mlibc_initLocale();
++
++	// Parse the exec() stack.
++	mlibc::parse_exec_stack(__dlapi_entrystack(), &__mlibc_stack_data);
++	mlibc::set_startup_data(__mlibc_stack_data.argc, __mlibc_stack_data.argv,
++			__mlibc_stack_data.envp);
++}
++
++extern "C" void __mlibc_entry(int (*main_fn)(int argc, char* argv[], char* env[])) {
++	// TODO: call __dlapi_enter, otherwise static builds will break (see Linux sysdeps)
++	auto result = main_fn(__mlibc_stack_data.argc, __mlibc_stack_data.argv, environ);
++	exit(result);
++}
+diff --git a/sysdeps/umbra/generic/generic.cpp b/sysdeps/umbra/generic/generic.cpp
+new file mode 100644
+index 00000000..713e8413
+--- /dev/null
++++ b/sysdeps/umbra/generic/generic.cpp
+@@ -0,0 +1,139 @@
++#include <bits/ensure.h>
++#include <mlibc/debug.hpp>
++#include <mlibc/all-sysdeps.hpp>
++#include <errno.h>
++#include <dirent.h>
++#include <fcntl.h>
++#include <limits.h>
++#include <syscalls.hpp>
++
++#define STRINGIFY_(X) #X
++#define STRINGIFY(X) STRINGIFY_(X)
++#define UNIMPLEMENTED { \
++	sys_libc_log("Function on line " STRINGIFY(__LINE__) " not implemented"); \
++	sys_libc_panic(); \
++}
++
++namespace mlibc {
++
++void sys_libc_log(const char *message) {
++	syscall(SYSCALL_LOG, (uint64_t)message);
++}
++
++void sys_libc_panic() {
++	sys_libc_log("PANIC");
++	for (;;);
++}
++
++int sys_tcb_set(void *pointer) {
++    return syscall(SYSCALL_TCB_SET, pointer);
++}
++
++int sys_futex_wait(int *pointer, int expected, const struct timespec *time) {
++	return syscall(SYSCALL_FUTEX_WAIT, pointer, expected, time);
++}
++
++int sys_futex_wake(int *pointer) {
++	return syscall(SYSCALL_FUTEX_WAKE, pointer);
++}
++
++int sys_anon_allocate(size_t size, void **pointer) {
++	return sys_vm_map(nullptr, size, PROT_READ | PROT_WRITE, MAP_ANONYMOUS, -1, 0, pointer);
++}
++
++int sys_anon_free(void *pointer, size_t size) UNIMPLEMENTED 
++
++int sys_open(const char *path, int flags, mode_t mode, int *fd) {
++    return syscall(SYSCALL_OPEN, path, flags, mode, fd);
++}
++
++int sys_read(int fd, void *buf, size_t count, ssize_t *bytes_read) {
++    return syscall(SYSCALL_READ, fd, buf, count, bytes_read);
++}
++
++int sys_seek(int fd, off_t offset, int whence, off_t *new_offset) {
++    return syscall(SYSCALL_SEEK, fd, offset, whence, new_offset);
++}
++
++int sys_close(int fd) {
++    return syscall(SYSCALL_CLOSE, fd);
++}
++
++int sys_vm_map(void *hint, size_t size, int prot, int flags,
++		int fd, off_t offset, void **window) {
++	void* res = (void*)syscall(SYSCALL_MMAP, hint, size, prot, flags, fd, offset);
++	if (res == nullptr) {
++		return -1;
++	}
++	*window = res;
++	return 0;
++}
++
++int sys_vm_unmap(void *pointer, size_t size) UNIMPLEMENTED
++
++#ifndef MLIBC_BUILDING_RTDL
++void sys_exit(int status) {
++    syscall(SYSCALL_EXIT, status);
++}
++
++int sys_clock_get(int clock, time_t *secs, long *nanos) {
++    return syscall(SYSCALL_CLOCK_GET, clock, secs, nanos);
++}
++
++int sys_write(int fd, const void *buf, size_t count, ssize_t *bytes_written) {
++    return syscall(SYSCALL_WRITE, fd, buf, count, bytes_written);
++}
++#endif
++
++int sys_sleep(time_t* sec, long* nanosec){
++	syscall(SYSCALL_SLEEP, (uint64_t)(*sec) * 1000 + (uint64_t)(*nanosec) / 1'000'000);
++	return 0;
++}
++
++int sys_isatty(int fd) {
++    return 0;
++}
++
++int sys_getcwd(char *buffer, size_t size) {
++    return syscall(SYSCALL_GET_CWD, buffer, size);
++}
++
++int sys_openat(int dirfd, const char *path, int flags, mode_t mode, int *fd) {
++    return syscall(SYSCALL_OPENAT, dirfd, path, flags, mode, fd);
++}
++
++int sys_stat(fsfd_target fsfdt, int fd, const char *path, int flags, struct stat *statbuf) {
++    int ret;
++
++    switch (fsfdt) {
++        case fsfd_target::fd:
++            syscall(SYSCALL_STAT, fd, "", flags, statbuf);
++            break;
++        case fsfd_target::path:
++            syscall(SYSCALL_STAT, AT_FDCWD, path, flags, statbuf);
++	    break;
++        default:
++	    mlibc::panicLogger() << "fsfd not supported" << frg::endlog;
++            return ENOSYS;
++    }
++
++    return ret;
++}
++
++int sys_open_dir(const char* path, int* handle) {
++    return sys_open(path, O_DIRECTORY, 0, handle);
++}
++
++int sys_read_entries(int handle, void *buffer, size_t max_size, size_t *bytes_read) {
++    return syscall(SYSCALL_READ_ENTRIES, handle, buffer, max_size, bytes_read);
++}
++
++int sys_chdir(const char *path) {
++	return syscall(SYSCALL_CHDIR, path);
++}
++
++int sys_mkdir(const char *path, mode_t mode) {
++	return syscall(SYSCALL_MKDIR, path, mode);
++}
++
++} // namespace mlibc
+diff --git a/sysdeps/umbra/include/abi-bits/access.h b/sysdeps/umbra/include/abi-bits/access.h
+new file mode 120000
+index 00000000..cb839316
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/access.h
+@@ -0,0 +1 @@
++../../../../abis/linux/access.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/auxv.h b/sysdeps/umbra/include/abi-bits/auxv.h
+new file mode 120000
+index 00000000..c43f8786
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/auxv.h
+@@ -0,0 +1 @@
++../../../../abis/linux/auxv.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/blkcnt_t.h b/sysdeps/umbra/include/abi-bits/blkcnt_t.h
+new file mode 120000
+index 00000000..0b0ec270
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/blkcnt_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/blkcnt_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/blksize_t.h b/sysdeps/umbra/include/abi-bits/blksize_t.h
+new file mode 120000
+index 00000000..7dc8d7cf
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/blksize_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/blksize_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/clockid_t.h b/sysdeps/umbra/include/abi-bits/clockid_t.h
+new file mode 120000
+index 00000000..6a42da56
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/clockid_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/clockid_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/dev_t.h b/sysdeps/umbra/include/abi-bits/dev_t.h
+new file mode 120000
+index 00000000..bca881e9
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/dev_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/dev_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/epoll.h b/sysdeps/umbra/include/abi-bits/epoll.h
+new file mode 120000
+index 00000000..eb4b76dc
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/epoll.h
+@@ -0,0 +1 @@
++../../../../abis/linux/epoll.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/errno.h b/sysdeps/umbra/include/abi-bits/errno.h
+new file mode 120000
+index 00000000..6e507def
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/errno.h
+@@ -0,0 +1 @@
++../../../../abis/linux/errno.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/fcntl.h b/sysdeps/umbra/include/abi-bits/fcntl.h
+new file mode 120000
+index 00000000..463e2c95
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/fcntl.h
+@@ -0,0 +1 @@
++../../../../abis/linux/fcntl.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/fsblkcnt_t.h b/sysdeps/umbra/include/abi-bits/fsblkcnt_t.h
+new file mode 120000
+index 00000000..898dfb2f
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/fsblkcnt_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/fsblkcnt_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/fsfilcnt_t.h b/sysdeps/umbra/include/abi-bits/fsfilcnt_t.h
+new file mode 120000
+index 00000000..791755c9
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/fsfilcnt_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/fsfilcnt_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/gid_t.h b/sysdeps/umbra/include/abi-bits/gid_t.h
+new file mode 120000
+index 00000000..abce6d69
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/gid_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/gid_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/in.h b/sysdeps/umbra/include/abi-bits/in.h
+new file mode 120000
+index 00000000..418d1d5c
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/in.h
+@@ -0,0 +1 @@
++../../../../abis/linux/in.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/ino_t.h b/sysdeps/umbra/include/abi-bits/ino_t.h
+new file mode 120000
+index 00000000..4c20aca2
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/ino_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/ino_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/inotify.h b/sysdeps/umbra/include/abi-bits/inotify.h
+new file mode 120000
+index 00000000..b5cb2823
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/inotify.h
+@@ -0,0 +1 @@
++../../../../abis/linux/inotify.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/ioctls.h b/sysdeps/umbra/include/abi-bits/ioctls.h
+new file mode 120000
+index 00000000..595106b6
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/ioctls.h
+@@ -0,0 +1 @@
++../../../../abis/linux/ioctls.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/limits.h b/sysdeps/umbra/include/abi-bits/limits.h
+new file mode 120000
+index 00000000..6c88db2e
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/limits.h
+@@ -0,0 +1 @@
++../../../../abis/linux/limits.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/mode_t.h b/sysdeps/umbra/include/abi-bits/mode_t.h
+new file mode 120000
+index 00000000..5d78fdfc
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/mode_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/mode_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/mqueue.h b/sysdeps/umbra/include/abi-bits/mqueue.h
+new file mode 120000
+index 00000000..fa87b078
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/mqueue.h
+@@ -0,0 +1 @@
++../../../../abis/linux/mqueue.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/nlink_t.h b/sysdeps/umbra/include/abi-bits/nlink_t.h
+new file mode 120000
+index 00000000..bb3b625c
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/nlink_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/nlink_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/packet.h b/sysdeps/umbra/include/abi-bits/packet.h
+new file mode 120000
+index 00000000..998ef1ab
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/packet.h
+@@ -0,0 +1 @@
++../../../../abis/linux/packet.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/pid_t.h b/sysdeps/umbra/include/abi-bits/pid_t.h
+new file mode 120000
+index 00000000..baa90f6a
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/pid_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/pid_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/poll.h b/sysdeps/umbra/include/abi-bits/poll.h
+new file mode 120000
+index 00000000..8ea6a0a3
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/poll.h
+@@ -0,0 +1 @@
++../../../../abis/linux/poll.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/ptrace.h b/sysdeps/umbra/include/abi-bits/ptrace.h
+new file mode 120000
+index 00000000..b2517b2c
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/ptrace.h
+@@ -0,0 +1 @@
++../../../../abis/linux/ptrace.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/resource.h b/sysdeps/umbra/include/abi-bits/resource.h
+new file mode 120000
+index 00000000..88d74025
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/resource.h
+@@ -0,0 +1 @@
++../../../../abis/linux/resource.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/seek-whence.h b/sysdeps/umbra/include/abi-bits/seek-whence.h
+new file mode 120000
+index 00000000..df7bccf0
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/seek-whence.h
+@@ -0,0 +1 @@
++../../../../abis/linux/seek-whence.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/shm.h b/sysdeps/umbra/include/abi-bits/shm.h
+new file mode 120000
+index 00000000..067d8c4f
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/shm.h
+@@ -0,0 +1 @@
++../../../../abis/linux/shm.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/signal.h b/sysdeps/umbra/include/abi-bits/signal.h
+new file mode 120000
+index 00000000..4dcb0b7c
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/signal.h
+@@ -0,0 +1 @@
++../../../../abis/linux/signal.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/socket.h b/sysdeps/umbra/include/abi-bits/socket.h
+new file mode 120000
+index 00000000..f1dc016e
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/socket.h
+@@ -0,0 +1 @@
++../../../../abis/linux/socket.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/socklen_t.h b/sysdeps/umbra/include/abi-bits/socklen_t.h
+new file mode 120000
+index 00000000..41f3b11f
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/socklen_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/socklen_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/stat.h b/sysdeps/umbra/include/abi-bits/stat.h
+new file mode 120000
+index 00000000..1f63b41f
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/stat.h
+@@ -0,0 +1 @@
++../../../../abis/linux/stat.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/statfs.h b/sysdeps/umbra/include/abi-bits/statfs.h
+new file mode 120000
+index 00000000..e3d202f5
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/statfs.h
+@@ -0,0 +1 @@
++../../../../abis/linux/statfs.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/statvfs.h b/sysdeps/umbra/include/abi-bits/statvfs.h
+new file mode 120000
+index 00000000..1fc80c2a
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/statvfs.h
+@@ -0,0 +1 @@
++../../../../abis/linux/statvfs.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/suseconds_t.h b/sysdeps/umbra/include/abi-bits/suseconds_t.h
+new file mode 120000
+index 00000000..9ed65977
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/suseconds_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/suseconds_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/termios.h b/sysdeps/umbra/include/abi-bits/termios.h
+new file mode 120000
+index 00000000..ee8f0b09
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/termios.h
+@@ -0,0 +1 @@
++../../../../abis/linux/termios.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/time.h b/sysdeps/umbra/include/abi-bits/time.h
+new file mode 120000
+index 00000000..2a026257
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/time.h
+@@ -0,0 +1 @@
++../../../../abis/linux/time.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/uid_t.h b/sysdeps/umbra/include/abi-bits/uid_t.h
+new file mode 120000
+index 00000000..b3067778
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/uid_t.h
+@@ -0,0 +1 @@
++../../../../abis/linux/uid_t.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/utsname.h b/sysdeps/umbra/include/abi-bits/utsname.h
+new file mode 120000
+index 00000000..b2857547
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/utsname.h
+@@ -0,0 +1 @@
++../../../../abis/linux/utsname.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/vm-flags.h b/sysdeps/umbra/include/abi-bits/vm-flags.h
+new file mode 120000
+index 00000000..bbe258cf
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/vm-flags.h
+@@ -0,0 +1 @@
++../../../../abis/linux/vm-flags.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/wait.h b/sysdeps/umbra/include/abi-bits/wait.h
+new file mode 120000
+index 00000000..feb2840c
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/wait.h
+@@ -0,0 +1 @@
++../../../../abis/linux/wait.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/abi-bits/xattr.h b/sysdeps/umbra/include/abi-bits/xattr.h
+new file mode 120000
+index 00000000..66412d70
+--- /dev/null
++++ b/sysdeps/umbra/include/abi-bits/xattr.h
+@@ -0,0 +1 @@
++../../../../abis/linux/xattr.h
+\ No newline at end of file
+diff --git a/sysdeps/umbra/include/syscalls.hpp b/sysdeps/umbra/include/syscalls.hpp
+new file mode 100644
+index 00000000..36eb3123
+--- /dev/null
++++ b/sysdeps/umbra/include/syscalls.hpp
+@@ -0,0 +1,47 @@
++#define SYSCALL_LOG	     0
++#define SYSCALL_MMAP	     1
++#define SYSCALL_OPEN	     2
++#define SYSCALL_READ	     3
++#define SYSCALL_SEEK	     4
++#define SYSCALL_CLOSE	     5
++#define SYSCALL_TCB_SET      6
++#define SYSCALL_EXIT         7
++#define SYSCALL_WRITE  	     8
++#define SYSCALL_FUTEX_WAIT   9
++#define SYSCALL_FUTEX_WAKE   10
++#define SYSCALL_GET_CWD      11
++#define SYSCALL_OPENAT       12
++#define SYSCALL_STAT         13
++#define SYSCALL_READ_ENTRIES 14
++#define SYSCALL_CHDIR	     15
++//#define SYSCALL_DRAW_FROM_BUFFER 16
++#define SYSCALL_MKDIR	     17
++#define SYSCALL_CLOCK_GET    18
++#define SYSCALL_SLEEP        19
++//#define SYSCALL_GET_KB_EVENT 20
++
++[[gnu::always_inline]] inline uint64_t _syscall(uint64_t code, uint64_t arg1 = 0, uint64_t arg2 = 0, 
++        uint64_t arg3 = 0, uint64_t arg4 = 0, uint64_t arg5 = 0, uint64_t arg6 = 0) {
++    uint64_t ret;
++    asm volatile(
++        "movq %[code], %%rdi\n"
++        "movq %[arg1], %%rsi\n"
++        "movq %[arg2], %%rdx\n"
++        "movq %[arg3], %%rcx\n"
++        "movq %[arg4], %%r8\n"
++        "movq %[arg5], %%r9\n"
++        "movq %[arg6], %%r10\n"
++        "int $0xfe\n"
++        "movq %%rax, %[ret]"
++        : [ret] "=r"(ret)
++        : [code] "r"(code), [arg1] "r"(arg1), [arg2] "r"(arg2), [arg3] "r"(arg3), 
++          [arg4] "r"(arg4), [arg5] "r"(arg5), [arg6] "r"(arg6)
++        : "%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9", "%r10", "%rax"
++    );
++    return ret;
++}
++
++template <typename... T>
++[[gnu::always_inline]] inline uint64_t syscall(uint64_t code, T... args) {
++    return _syscall(code, (uint64_t)(args)...);
++}
+diff --git a/sysdeps/umbra/meson.build b/sysdeps/umbra/meson.build
+new file mode 100755
+index 00000000..4f4dcd77
+--- /dev/null
++++ b/sysdeps/umbra/meson.build
+@@ -0,0 +1,68 @@
++
++rtdl_sources += files(
++	'generic/generic.cpp'
++)
++
++libc_sources += files(
++	'generic/entry.cpp',
++	'generic/generic.cpp',
++)
++
++if not no_headers
++	install_headers(
++		'include/abi-bits/auxv.h',
++		'include/abi-bits/seek-whence.h',
++		'include/abi-bits/vm-flags.h',
++		'include/abi-bits/errno.h',
++		'include/abi-bits/fcntl.h',
++		'include/abi-bits/in.h',
++		'include/abi-bits/resource.h',
++		'include/abi-bits/stat.h',
++		'include/abi-bits/signal.h',
++		'include/abi-bits/socket.h',
++		'include/abi-bits/termios.h',
++		'include/abi-bits/blkcnt_t.h',
++		'include/abi-bits/blksize_t.h',
++		'include/abi-bits/dev_t.h',
++		'include/abi-bits/gid_t.h',
++		'include/abi-bits/ino_t.h',
++		'include/abi-bits/mode_t.h',
++		'include/abi-bits/nlink_t.h',
++		'include/abi-bits/pid_t.h',
++		'include/abi-bits/uid_t.h',
++		'include/abi-bits/access.h',
++		'include/abi-bits/wait.h',
++		'include/abi-bits/limits.h',
++		'include/abi-bits/utsname.h',
++		'include/abi-bits/ptrace.h',
++		'include/abi-bits/poll.h',
++		'include/abi-bits/epoll.h',
++		'include/abi-bits/packet.h',
++		'include/abi-bits/inotify.h',
++		'include/abi-bits/clockid_t.h',
++		'include/abi-bits/shm.h',
++		'include/abi-bits/mqueue.h',
++		'include/abi-bits/suseconds_t.h',
++		'include/abi-bits/fsfilcnt_t.h',
++		'include/abi-bits/fsblkcnt_t.h',
++		'include/abi-bits/socklen_t.h',
++		'include/abi-bits/statfs.h',
++		'include/abi-bits/statvfs.h',
++		'include/abi-bits/ioctls.h',
++		'include/abi-bits/xattr.h',
++		'include/abi-bits/time.h',
++		subdir: 'abi-bits'
++	)
++endif
++
++if not headers_only
++	crt = custom_target('crt0',
++		build_by_default: true,
++		command: c_compiler.cmd_array() + ['-c', '-o', '@OUTPUT@', '@INPUT@'],
++		input: 'crt-x86_64/crt0.S',
++		output: 'crt0.o',
++		install: true,
++		install_dir: get_option('libdir')
++	)
++endif
++

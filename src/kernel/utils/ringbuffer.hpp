@@ -34,4 +34,8 @@ public:
         tail = (tail + 1) % Size;
         return Optional<T>(item);
     }
+
+    bool is_empty() {
+        return head == tail;
+    }
 };

@@ -31,6 +31,6 @@ struct [[gnu::packed]] UstarHeader {
     char prefix[155];
 };
 
-void init(char device);
+void init();
 
 };

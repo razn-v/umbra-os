@@ -29,3 +29,8 @@ volatile struct limine_module_request module_request = {
     .id = LIMINE_MODULE_REQUEST,
     .revision = 0
 };
+
+volatile struct limine_boot_time_request time_request = {
+    .id = LIMINE_BOOT_TIME_REQUEST,
+    .revision = 0
+};

@@ -8,7 +8,9 @@
 #include <kernel/scheduler.hpp>
 #include <kernel/fs/tmpfs.hpp>
 #include <kernel/fs/initramfs.hpp>
-#include <elf.h>
+#include <kernel/dev/tty.hpp>
+#include <kernel/timer.hpp>
+#include <kernel/elf.hpp>
 
 // Halt and catch fire function.
 static void hcf(void) {
@@ -20,6 +22,32 @@ static void hcf(void) {
 // TODO: Move this somewhere else
 extern "C" void __cxa_pure_virtual() {
     __builtin_unreachable();
+}
+
+extern "C" void __cxa_atexit() {
+    return;
+}
+
+int __dso_handle;
+
+static inline uint64_t read_cr0(void) {
+    uint64_t ret;
+    asm volatile ("mov %%cr0, %0" : "=r"(ret) :: "memory");
+    return ret;
+}
+
+static inline void write_cr0(uint64_t value) {
+    asm volatile ("mov %0, %%cr0" :: "r"(value) : "memory");
+}
+
+static inline uint64_t read_cr4(void) {
+    uint64_t ret;
+    asm volatile ("mov %%cr4, %0" : "=r"(ret) :: "memory");
+    return ret;
+}
+
+static inline void write_cr4(uint64_t value) {
+    asm volatile ("mov %0, %%cr4" :: "r"(value) : "memory");
 }
 
 extern "C" void _start(void) {
@@ -44,6 +72,8 @@ extern "C" void _start(void) {
     Idt::init();
     Terminal::printf("{green}[*]{white} IDT loaded.\n");
 
+    Timer::init();
+
     // Initialize local APIC
     Apic::init();
     Terminal::printf("{green}[*]{white} APIC initialized.\n");
@@ -58,47 +88,35 @@ extern "C" void _start(void) {
 
     Gdt::init_tss();
 
-    Vfs::mount('A', new Tmpfs);
-    Initramfs::init('A');
-    Vfs::print_tree(Vfs::get_mountpoint('A'));
+    Vfs::mount(nullptr, new Tmpfs);
+    Vfs::init_std(new Tty);
+    Initramfs::init();;
 
-    // Testing if ELFs are working properly
+    // Enable SSE/SSE2
+    uint64_t cr0 = read_cr0();
+    cr0 &= ~((uint64_t)1 << 2);
+    cr0 |= (uint64_t)1 << 1;
+    write_cr0(cr0);
+    uint64_t cr4 = read_cr4();
+    cr4 |= (uint64_t)3 << 9;
+    write_cr4(cr4);
+
+    // Loading the initial ELF
+    auxval init_auxv, ld_auxv;
+    char* ld_path;
     Vmm::AddressSpace* space = Vmm::new_space();
-    Elf64_Ehdr header;
-    auto fd = Vfs::open('A', "test", Vfs::OpenMode::ReadOnly);
-    Vfs::read(fd, &header, sizeof(header));
 
-    Terminal::printf("Entry is at %x\n", header.e_entry);
+    auto fd = Vfs::open("/test", Vfs::OpenMode::ReadOnly);
+    Elf::load(space, fd, 0x0, &init_auxv, &ld_path);
+    auto ld = Vfs::open(ld_path, Vfs::OpenMode::ReadOnly);
+    Elf::load(space, ld, 0x40000000, &ld_auxv, NULL);
 
-    for (size_t i = 0; i < header.e_phnum; i++) {
-        Elf64_Phdr program_header;
-        Vfs::seek_read(fd, header.e_phoff + i * header.e_phentsize, Vfs::SeekMode::Set);
-        Vfs::read(fd, &program_header, sizeof(program_header));
-
-        switch (program_header.p_type) {
-            case PT_LOAD: {
-                // FIXME: Do we have to account for misalignment?
-                size_t pages = ALIGN_UP(program_header.p_memsz, PAGE_SIZE) / PAGE_SIZE;
-                void* phys = Pmm::calloc(pages);
-
-                // FIXME This shouldn't be RW or executable in all cases
-                space->map_range(program_header.p_vaddr, (uintptr_t)phys, pages, PTE_PRESENT | 
-                        PTE_WRITABLE | PTE_USER);
-                void* virt = (void*)PHYS_TO_VIRT((uintptr_t)phys);
-
-                Vfs::seek_read(fd, program_header.p_offset, Vfs::SeekMode::Set);
-                Vfs::read(fd, virt, program_header.p_filesz);
-                break;
-            }
-            default: {
-                break;
-            }
-        }
-    }
+    auto elf_test = Task::create("test", (void(*)())ld_auxv.at_entry, true, space, &init_auxv);
+    elf_test->heap_cur = init_auxv.at_entry + ALIGN_UP(fd->node->file_size, PAGE_SIZE);
+    elf_test->working_dir = strdup("/");
 
     Vfs::close(fd);
-
-    auto elf_test = Task::create("test", (void(*)())header.e_entry, true, space);
+    Vfs::close(ld);
 
     // Initialize the scheduler
     Scheduler::init();

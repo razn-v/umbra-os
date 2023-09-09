@@ -26,7 +26,7 @@ extern "C" uintptr_t int_dispatch(Registers* regs) {
     }
 
     Apic::Local::write_reg(Apic::Local::Register::Eoi, 0);
-    return (uintptr_t) regs;
+    return (uintptr_t)regs;
 }
 
 void set_handler(uint64_t vect, irq_handler handler) {

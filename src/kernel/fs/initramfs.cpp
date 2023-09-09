@@ -19,23 +19,23 @@ uint64_t oct_to_dec(const char* str) {
     return res;
 }
 
-void init(char device) {
+void init() {
     struct limine_file** modules = module_request.response->modules;
-    struct Initramfs::UstarHeader* archive = (Initramfs::UstarHeader*)modules[0]->address;
+    Initramfs::UstarHeader* archive = (Initramfs::UstarHeader*)modules[0]->address;
 
     while (strncmp(archive->magic, "ustar", 5)) {
         uint64_t size = oct_to_dec(archive->size);
 
         switch (archive->type_flag) {
             case USTAR_TYPE_NORMAL: {
-                Vfs::Node* node = Vfs::create(device, archive->name, Vfs::NodeType::File);
+                Vfs::Node* node = Vfs::create(archive->name, Vfs::NodeType::File);
                 node->file_data = new uint8_t[size];
                 node->file_size = size;
                 memcpy(node->file_data, (void*)((uintptr_t)archive + 512), size);
                 break;
             }
             case USTAR_TYPE_DIRECTORY: {
-                Vfs::create(device, archive->name, Vfs::NodeType::Directory);
+                Vfs::create(archive->name, Vfs::NodeType::Directory);
                 break;
             }
         }

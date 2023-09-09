@@ -1,6 +1,9 @@
+#pragma once
+
+// TODO: Add an iterator
 template <typename T>
 class DoublyLinkedList {
-private:
+public:
     struct Node {
         T value;
         Node* prev;
@@ -10,8 +13,8 @@ private:
     };
 
     Node* head = nullptr;
+    size_t size = 0;
 
-public:
     ~DoublyLinkedList() {
         Node* current = this->head;
         while (current != nullptr) {
@@ -28,9 +31,11 @@ public:
             this->head = node;
         } else {
             node->next = this->head;
-            this->head->next->prev = node;
+            if (this->head->next != nullptr) this->head->next->prev = node;
             this->head = node;
         }
+
+        this->size++;
     }
 
     void remove(T value) {
@@ -50,10 +55,30 @@ public:
                         current->next->prev = current->prev;
                     }
                 }
+                this->size--;
                 delete current;
                 break;
             }
             current = next;
         }
+    }
+
+    Optional<T> get(T value) {
+        Node* current = this->head;
+        while (current != nullptr) {
+            if (current->value == value) {
+                return Optional<T>(value);
+            }
+            current = current->next;
+        }
+        return Optional<T>();
+    }
+
+    size_t get_size() {
+        return this->size;
+    }
+
+    bool is_empty() {
+        return this->head == nullptr;
     }
 };

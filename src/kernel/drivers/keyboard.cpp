@@ -37,6 +37,7 @@ void handler([[gnu::unused]] Interrupt::Registers* regs) {
         }
 
         keyboard.clear();
+        Scheduler::wake_io(KeyboardEvent(key.key_code, 0, false));
         return;
     }
 
@@ -49,12 +50,8 @@ void handler([[gnu::unused]] Interrupt::Registers* regs) {
         if (keyboard.caps_lock_on()) keyboard.modifiers_mask &= ~(1 << CAPS_LOCK_MASK);
         else keyboard.modifiers_mask |= 1 << CAPS_LOCK_MASK;
     } else {
-        Task* current_task = Scheduler::get_current_task();
-        if (current_task != nullptr) {
-            char ascii = !keyboard.uppercase() ? key.ascii : key.uppercase_ascii;
-            current_task->events->write(KeyboardEvent(key.key_code, ascii));
-        }
-        //Terminal::printf("%c", !keyboard.uppercase() ? key.ascii : key.uppercase_ascii);
+        char ascii = !keyboard.uppercase() ? key.ascii : key.uppercase_ascii;
+        Scheduler::wake_io(KeyboardEvent(key.key_code, ascii, true));
     }
 
     keyboard.clear();

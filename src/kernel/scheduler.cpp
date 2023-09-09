@@ -3,13 +3,18 @@
 #include <kernel/memory/vmm.hpp>
 #include <kernel/libc/string.hpp>
 
+#include <kernel/terminal.hpp>
 // A horrible round-robin scheduler. It might be broken, idk, we'll see.
 namespace Scheduler {
 
 static Task* current_task = nullptr;
 static Task* idle_task = nullptr;
 
-TaskList queue;
+static TaskList queue;
+// List of processes that hold at least one futex
+// FIXME: Using a hashmap `futex: task` would be better 
+static DoublyLinkedList<Task*> futex_handles;
+static Spinlock futex_lock;
 
 void idle_func() {
     for (;;) asm volatile("hlt");
@@ -49,7 +54,7 @@ void schedule(Interrupt::Registers* context) {
                 current_task->status = Task::Status::Running;
                 goto end;
             }
-            case Task::Status::Waiting: {
+            case Task::Status::Sleeping: {
                 if (__rdtsc() >= current_task->tsc_sleep) {
                     // The task has finished sleeping
                     current_task->status = Task::Status::Running;
@@ -62,6 +67,15 @@ void schedule(Interrupt::Registers* context) {
                 }
                 break;
             }
+            case Task::Status::WaitingIo:
+                if (queue.next_task() != current_task) {
+                    // Go to the next task available
+                    current_task = queue.get_current();
+                } else {
+                    // No task available has been found
+                    current_task = idle_task;
+                }
+                break;
             default:
                 break;
         }
@@ -96,14 +110,58 @@ void add_task(Task* task) {
     queue.add_task(task);
 }
 
+void add_futex_handle(Task* task) {
+    futex_lock.acquire();
+    futex_handles.push(task);
+    futex_lock.release();
+}
+
+void remove_futex_handle(Task* task) {
+    futex_lock.acquire();
+    futex_handles.remove(task);
+    futex_lock.release();
+}
+
+void wake_futex_handles(uintptr_t pointer) {
+    futex_lock.acquire();
+
+    auto current = futex_handles.head;
+    while (current != nullptr) {
+        if (!current->value->futexes.get(pointer).is_none()) {
+            current->value->status = Task::Status::Running;
+        }
+        current = current->next;
+    }
+
+    futex_lock.release();
+}
+
 Task* get_current_task() {
     return current_task;
 }
 
 void sleep(uint64_t ms) {
-    current_task->status = Task::Status::Waiting;
+    current_task->status = Task::Status::Sleeping;
     current_task->tsc_sleep = __rdtsc() + Timer::ms_to_cycles(ms);
     Scheduler::yield();
+}
+
+void await_io() {
+    current_task->status = Task::Status::WaitingIo;
+    Scheduler::yield();
+}
+
+// Wake all tasks that were waiting for IO
+void wake_io(Keyboard::KeyboardEvent kb_event) {
+    // We should really refactor the scheduler and use a dedicated queue for waiting tasks...
+    auto current = queue.front;
+    while (current != nullptr) {
+        current->task->events->write(kb_event);
+        if (current->task->status == Task::Status::WaitingIo) {
+            current->task->status = Task::Status::Running;
+        }
+        current = current->next;
+    }
 }
 
 }

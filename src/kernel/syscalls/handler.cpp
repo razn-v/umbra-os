@@ -1,10 +1,9 @@
 #include <kernel/syscalls/handler.hpp>
-#include <kernel/api/syscalls.hpp>
 #include <kernel/terminal.hpp>
 
 namespace Syscall {
 
-using SyscallHandler = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
+using SyscallHandler = uint64_t (*)(uint64_t, uint64_t, uint64_t, uint64_t, uint64_t, uint64_t);
 
 #define SYSCALL(code, handler) (SyscallHandler)handler,
 static SyscallHandler handlers[] = {
@@ -14,11 +13,11 @@ static SyscallHandler handlers[] = {
 
 void handler(Interrupt::Registers* regs) {
     if (regs->rdi >= SyscallCode::END) {
-        Terminal::printf("{red}invalid syscall!\n");
+        Terminal::printf("{red}Invalid syscall!\n");
         return;
     }
 
-    handlers[regs->rdi](regs->rsi, regs->rdx, regs->rcx, regs->r8, regs->r9);
+    regs->rax = handlers[regs->rdi](regs->rsi, regs->rdx, regs->rcx, regs->r8, regs->r9, regs->r10);
 }
 
 }

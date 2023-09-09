@@ -85,6 +85,7 @@ void strcpy(char* dest, const char* src) {
         dest[i] = src[i];
         i++;
     }
+    dest[i] = 0;
 }
 
 char* strcat(char* dest, const char* src) {

@@ -3,7 +3,7 @@
 
 namespace Scheduler {
     
-// `TaskStack` is a linked list, but with a unique pointer `current` that allows traversal through 
+// `TaskList` is a linked list, but with a unique pointer `current` that allows traversal through 
 // the nodes of the list. When `next_task` is called, `current_task` moves to the next node in the 
 // list, and if no node is there, `current` get assigned to the first element (`front`) of the list.
 //
@@ -12,7 +12,7 @@ namespace Scheduler {
 //  - It allows easy traversal of the list with `next_task`, instead of manually dealing with nodes
 //  or having a `next` field to the `Task` class.
 class TaskList {
-private:
+public:
     struct Node {
         Task* task;
         Node* prev;
@@ -24,7 +24,6 @@ private:
     Node* front;
     Node* current;
 
-public:
     TaskList() : front(nullptr), current(nullptr) {}
 
     Task* get_current() {
@@ -86,6 +85,22 @@ void yield();
 void kill_and_yield();
 void add_task(Task* task);
 Task* get_current_task();
+void add_futex_handle(Task* task);
+void remove_futex_handle(Task* task);
+void wake_futex_handles(uintptr_t pointer);
 void sleep(uint64_t ms);
+void await_io();
+void wake_io(Keyboard::KeyboardEvent kb_event);
+
+template <typename ConditionFunc>
+void block_on(ConditionFunc condition) {
+    if (condition()) {
+        return;
+    }
+
+    while (!condition()) {
+        Scheduler::await_io();
+    }
+}
 
 }

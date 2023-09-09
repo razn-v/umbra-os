@@ -10,7 +10,7 @@ size_t Tmpfs::read(Vfs::Node* node, void* buffer, size_t offset, size_t length) 
     return length;
 }
 
-size_t Tmpfs::write(Vfs::Node* node, void* buffer, size_t offset, size_t length) {
+size_t Tmpfs::write(Vfs::Node* node, const void* buffer, size_t offset, size_t length) {
     if (node->type != Vfs::NodeType::File) {
         return 0;
     }

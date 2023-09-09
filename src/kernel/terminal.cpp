@@ -11,6 +11,19 @@ void Terminal::init(limine_framebuffer *framebuffer) {
     terminal.font = (PsfFont*) &_binary_fonts_font_psf_start;
 }
 
+uint32_t* Terminal::get_framebuffer() {
+    if (terminal.framebuffer == nullptr) return nullptr;
+    return (uint32_t*)terminal.framebuffer->address;
+}
+
+uint64_t Terminal::get_width() {
+    return terminal.framebuffer->width;
+}
+
+uint64_t Terminal::get_height() {
+    return terminal.framebuffer->height;
+}
+
 void Terminal::clear_screen() {
     for (uint32_t i = 0; i < this->framebuffer->height * this->framebuffer->width; i++) {
         ((uint32_t*)this->framebuffer->address)[i] = 0;
@@ -58,13 +71,17 @@ void Terminal::printf(const char* format, ...) {
     terminal_lock.release();
 }
 
-void Terminal::puts(const char* str, Rgb fg, Rgb bg) {
-    uint64_t y = this->cursor_y;
-    uint64_t x = this->cursor_x;
+void Terminal::puts(const char* str, ssize_t length, Rgb fg, Rgb bg) {
+    uint64_t y = terminal.cursor_y;
+    uint64_t x = terminal.cursor_x;
 
     Rgb last_color = fg;
 
     for (int i = 0; str[i] != '\0'; i++) {
+        if (i == length) {
+            break;
+        }
+
         if (str[i] == '\n') {
             y++;
             x = 0;
@@ -100,23 +117,23 @@ void Terminal::puts(const char* str, Rgb fg, Rgb bg) {
             }
         }
 
-        if (x >= this->framebuffer->width / this->font->width) {
+        if (x >= terminal.framebuffer->width / terminal.font->width) {
             x = 0;
             y++;
         }
-        if (y >= this->framebuffer->height / this->font->height) {
-            this->scroll();
+        if (y >= terminal.framebuffer->height / terminal.font->height) {
+            terminal.scroll();
             y--;
-            //this->clear_screen();
+            //terminal->clear_screen();
             //y = 0;
         }
 
-        this->put_char(str[i], y, x, last_color, bg);
+        terminal.put_char(str[i], y, x, last_color, bg);
         x++;
     }
 
-    this->cursor_y = y;
-    this->cursor_x = x;
+    terminal.cursor_y = y;
+    terminal.cursor_x = x;
 }
 
 // TODO: Add specifiers for background/foreground color

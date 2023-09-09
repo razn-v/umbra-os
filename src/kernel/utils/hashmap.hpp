@@ -1,11 +1,11 @@
 #include <stddef.h>
-#include <kernel/terminal.hpp>
+#include <stdint.h>
 #include <kernel/utils/optional.hpp>
 
 // TODO: Add destructor
 template <typename Value, size_t Capacity>
 class StringHashMap {
-public:
+private:
     struct Entry {
         uint32_t key_hash;
         Value value;
@@ -17,7 +17,7 @@ public:
     };
 
     Entry** entries;
-    
+
     // djb2 algorithm
     static uint32_t hash_key(const char* key) {
         uint32_t hash = 5381;
@@ -30,6 +30,7 @@ public:
         return hash;
     }
 
+public:
     StringHashMap() : entries(new Entry*[Capacity]) {};
 
     void insert(char* key, Value value) {
@@ -43,14 +44,14 @@ public:
             this->entries[index] = new_entry;
         } else {
             // Iterate until the last entry
-            do {
+            while (entry->next != nullptr) {
                 // Check if the key is already in the hash table
                 if (entry->key_hash == hash) {
                     // No need to insert anything
                     return;
                 }
                 entry = entry->next;
-            } while (entry->next != nullptr);
+            }
 
             // Add the entry next to the already existing one
             entry->next = new_entry;
@@ -71,6 +72,27 @@ public:
                 return Optional<Value>(entry->value);
             }
         };
+
+        return Optional<Value>();
+    }
+
+    // Not optimal at all. We should refactor this whole thing tbh.
+    Optional<Value> get_nth(size_t n) {
+        size_t count = 0;
+
+        for (size_t i = 0; i < Capacity; ++i) {
+            Entry* entry = entries[i];
+            while (entry != nullptr) {
+                // Check if the entry is not empty
+                if (entry->key_hash != 0) {
+                    if (count == n) {
+                        return Optional<Value>(entry->value);
+                    }
+                    ++count;
+                }
+                entry = entry->next;
+            }
+        }
 
         return Optional<Value>();
     }

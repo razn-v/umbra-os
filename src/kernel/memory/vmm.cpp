@@ -44,7 +44,6 @@ void init() {
     uintptr_t text_end_addr = ALIGN_UP((uintptr_t)&text_end, PAGE_SIZE);
     uintptr_t rodata_start_addr = ALIGN_DOWN((uintptr_t)&rodata_start, PAGE_SIZE);
     uintptr_t rodata_end_addr = ALIGN_UP((uintptr_t)&rodata_end, PAGE_SIZE);
-
     uintptr_t data_start_addr = ALIGN_DOWN((uintptr_t)&data_start, PAGE_SIZE);
     uintptr_t data_end_addr = ALIGN_UP((uintptr_t)&data_end, PAGE_SIZE);
 

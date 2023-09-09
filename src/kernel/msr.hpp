@@ -2,13 +2,14 @@
 
 namespace Msr {
 
-enum class MsrType {
+enum class MsrType : uint64_t {
     // APIC Base Address Register
     ApicBase = 0x1b,
     // APIC Spurious Interrupt Vector Register
     ApicSivr = 0x80f,
     // APIC End Of Interrupt register
-    ApicEOI = 0x80b
+    ApicEOI = 0x80b,
+    Tcb = 0xc0000100
 };
 
 uint64_t read_msr(MsrType msr);

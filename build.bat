@@ -1,1 +1,1 @@
-wsl make -j24
+wsl make -j${nproc}

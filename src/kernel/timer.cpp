@@ -4,8 +4,16 @@
 
 namespace Timer {
 
+// UNIX time on boot, in milliseconds
+static uint64_t real_time;
+
 static uint32_t apic_calibrated_ticks;
 static uint32_t cycles_per_ms;
+
+void init() {
+    // The response from the bootloader is given in seconds
+    real_time = time_request.response->boot_time * 1000;
+}
 
 namespace Pit {
     static uint64_t pit_ticks = 0;
@@ -52,6 +60,7 @@ namespace Pit {
 namespace Lapic {
     // Lapic apic timer handler, called every ms
     void handler(Interrupt::Registers* regs) {
+        real_time++;
         Scheduler::schedule(regs);
     }
 
@@ -69,6 +78,10 @@ namespace Lapic {
 
 uint64_t ms_to_cycles(uint64_t ms) {
     return cycles_per_ms * ms;
+}
+
+uint64_t get_real_time() {
+    return real_time;
 }
 
 }
