@@ -2,3 +2,6 @@
 	path = vendor/limine
 	url = https://github.com/limine-bootloader/limine
 	branch = v5.x-branch-binary
+[submodule "src/apps/doomgeneric"]
+	path = src/apps/doomgeneric
+	url = https://github.com/razn-v/doomgeneric

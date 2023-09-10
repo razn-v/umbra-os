@@ -106,7 +106,7 @@ extern "C" void _start(void) {
     char* ld_path;
     Vmm::AddressSpace* space = Vmm::new_space();
 
-    auto fd = Vfs::open("/test", Vfs::OpenMode::ReadOnly);
+    auto fd = Vfs::open("/doomgeneric", Vfs::OpenMode::ReadOnly);
     Elf::load(space, fd, 0x0, &init_auxv, &ld_path);
     auto ld = Vfs::open(ld_path, Vfs::OpenMode::ReadOnly);
     Elf::load(space, ld, 0x40000000, &ld_auxv, NULL);
