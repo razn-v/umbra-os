@@ -1,7 +1,7 @@
 #include <kernel/fs/vfs.hpp>
 #include <kernel/libc/string.hpp>
 #include <kernel/terminal.hpp>
-#include <kernel/dev/tty.hpp>
+#include <kernel/drivers/tty.hpp>
 
 namespace Vfs {
 

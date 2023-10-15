@@ -6,6 +6,7 @@
 #include <kernel/syscalls/fs.hpp>
 #include <kernel/syscalls/gui.hpp>
 #include <kernel/syscalls/clock.hpp>
+#include <kernel/syscalls/socket.hpp>
 #include <libs/core/syscalls.hpp>
 #include <kernel/int.hpp>
 

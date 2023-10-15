@@ -1,3 +1,5 @@
+#pragma once
+
 #include <kernel/utils/optional.hpp>
 
 template <typename T, size_t Size>

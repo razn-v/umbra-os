@@ -6,6 +6,7 @@
 #include <kernel/utils/ringbuffer.hpp>
 #include <kernel/utils/list.hpp>
 #include <kernel/fs/vfs.hpp>
+#include <kernel/net/socket.hpp>
 #include <stddef.h>
 
 #define TASK_NAME_LENGTH 64
@@ -38,7 +39,8 @@ struct Task {
     Ringbuffer<Keyboard::KeyboardEvent, 5>* events;
     // File and directory handles
     DoublyLinkedList<Vfs::FileDescriptor*> handles;
-    int next_fid = 3;
+    DoublyLinkedList<Socket::Handle*> socket_handles;
+    int next_id = 3;
     DoublyLinkedList<uintptr_t> futexes;
     uintptr_t heap_cur;
     char* working_dir;
@@ -47,5 +49,7 @@ struct Task {
             Vmm::AddressSpace* page_map = nullptr, auxval* auxv = nullptr);
 
     int add_file_handle(Vfs::FileDescriptor* fd);
+    int add_socket_handle(Socket::Handle* handle);
     Vfs::FileDescriptor* get_file_handle(int id);
+    Socket::Handle* get_socket_handle(int id);
 };

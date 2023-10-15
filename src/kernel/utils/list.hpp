@@ -1,5 +1,7 @@
 #pragma once
 
+#include <kernel/utils/optional.hpp>
+
 // TODO: Add an iterator
 template <typename T>
 class DoublyLinkedList {

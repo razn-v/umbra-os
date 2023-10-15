@@ -88,10 +88,10 @@ index 00000000..4b84b911
 +}
 diff --git a/sysdeps/umbra/generic/generic.cpp b/sysdeps/umbra/generic/generic.cpp
 new file mode 100644
-index 00000000..713e8413
+index 00000000..fda01bc9
 --- /dev/null
 +++ b/sysdeps/umbra/generic/generic.cpp
-@@ -0,0 +1,139 @@
+@@ -0,0 +1,175 @@
 +#include <bits/ensure.h>
 +#include <mlibc/debug.hpp>
 +#include <mlibc/all-sysdeps.hpp>
@@ -208,7 +208,7 @@ index 00000000..713e8413
 +	    break;
 +        default:
 +	    mlibc::panicLogger() << "fsfd not supported" << frg::endlog;
-+            return ENOSYS;
++            return -ENOSYS;
 +    }
 +
 +    return ret;
@@ -228,6 +228,42 @@ index 00000000..713e8413
 +
 +int sys_mkdir(const char *path, mode_t mode) {
 +	return syscall(SYSCALL_MKDIR, path, mode);
++}
++
++int sys_socket(int family, int type, int protocol, int *fd) {
++	int res = syscall(SYSCALL_SOCKET, family, type, protocol);
++	if (res < 0) {
++		return res;
++	}
++
++	*fd = res;
++	return 0;
++}
++
++int sys_msg_send(int sockfd, const struct msghdr *hdr, int flags, ssize_t *length) {
++	int res = syscall(SYSCALL_SEND_MSG, sockfd, hdr, flags);
++	if (res < 0) {
++		return res;
++	}
++	*length = res;
++	return 0;
++}
++
++int sys_msg_recv(int sockfd, struct msghdr *hdr, int flags, ssize_t *length) {
++	int res = syscall(SYSCALL_RECV_MSG, sockfd, hdr, flags);
++	if (res < 0) {
++		return res;
++	}
++	*length = res;
++	return 0;
++}
++
++int sys_setsockopt(int fd, int layer, int number, const void *buffer, socklen_t size) {
++	int res = syscall(SYSCALL_SET_SOCKET_OPT, fd, layer, number, buffer, size);
++	if (res < 0) {
++		return res;
++	}
++	return 0;
 +}
 +
 +} // namespace mlibc
@@ -561,31 +597,35 @@ index 00000000..66412d70
 \ No newline at end of file
 diff --git a/sysdeps/umbra/include/syscalls.hpp b/sysdeps/umbra/include/syscalls.hpp
 new file mode 100644
-index 00000000..36eb3123
+index 00000000..52cb101e
 --- /dev/null
 +++ b/sysdeps/umbra/include/syscalls.hpp
-@@ -0,0 +1,47 @@
-+#define SYSCALL_LOG	     0
-+#define SYSCALL_MMAP	     1
-+#define SYSCALL_OPEN	     2
-+#define SYSCALL_READ	     3
-+#define SYSCALL_SEEK	     4
-+#define SYSCALL_CLOSE	     5
-+#define SYSCALL_TCB_SET      6
-+#define SYSCALL_EXIT         7
-+#define SYSCALL_WRITE  	     8
-+#define SYSCALL_FUTEX_WAIT   9
-+#define SYSCALL_FUTEX_WAKE   10
-+#define SYSCALL_GET_CWD      11
-+#define SYSCALL_OPENAT       12
-+#define SYSCALL_STAT         13
-+#define SYSCALL_READ_ENTRIES 14
-+#define SYSCALL_CHDIR	     15
+@@ -0,0 +1,51 @@
++#define SYSCALL_LOG	       0
++#define SYSCALL_MMAP	       1
++#define SYSCALL_OPEN	       2
++#define SYSCALL_READ	       3
++#define SYSCALL_SEEK	       4
++#define SYSCALL_CLOSE	       5
++#define SYSCALL_TCB_SET        6
++#define SYSCALL_EXIT           7
++#define SYSCALL_WRITE  	       8
++#define SYSCALL_FUTEX_WAIT     9
++#define SYSCALL_FUTEX_WAKE     10
++#define SYSCALL_GET_CWD        11
++#define SYSCALL_OPENAT         12
++#define SYSCALL_STAT           13
++#define SYSCALL_READ_ENTRIES   14
++#define SYSCALL_CHDIR	       15
 +//#define SYSCALL_DRAW_FROM_BUFFER 16
-+#define SYSCALL_MKDIR	     17
-+#define SYSCALL_CLOCK_GET    18
-+#define SYSCALL_SLEEP        19
++#define SYSCALL_MKDIR	       17
++#define SYSCALL_CLOCK_GET      18
++#define SYSCALL_SLEEP          19
 +//#define SYSCALL_GET_KB_EVENT 20
++#define SYSCALL_SOCKET         21
++#define SYSCALL_SEND_MSG       22
++#define SYSCALL_RECV_MSG       23
++#define SYSCALL_SET_SOCKET_OPT 24
 +
 +[[gnu::always_inline]] inline uint64_t _syscall(uint64_t code, uint64_t arg1 = 0, uint64_t arg2 = 0, 
 +        uint64_t arg3 = 0, uint64_t arg4 = 0, uint64_t arg5 = 0, uint64_t arg6 = 0) {

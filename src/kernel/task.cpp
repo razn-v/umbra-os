@@ -123,12 +123,26 @@ int Task::add_file_handle(Vfs::FileDescriptor* fd) {
     }
 
     if (fd->id == -1) {
-        fd->id = this->next_fid;
+        fd->id = this->next_id;
     }
 
-    this->next_fid++;
+    this->next_id++;
     this->handles.push(fd);
     return fd->id;
+}
+
+int Task::add_socket_handle(Socket::Handle* handle) {
+    if (handle == nullptr) {
+        return -1;
+    }
+
+    if (handle->id == -1) {
+        handle->id = this->next_id;
+    }
+
+    this->next_id++;
+    this->socket_handles.push(handle);
+    return handle->id;
 }
 
 Vfs::FileDescriptor* Task::get_file_handle(int id) {
@@ -141,6 +155,30 @@ Vfs::FileDescriptor* Task::get_file_handle(int id) {
     }
     return nullptr;
 }
+
+Socket::Handle* Task::get_socket_handle(int id) {
+    auto current = this->socket_handles.head;
+    while (current != nullptr) {
+        if (current->value->id == id) {
+            return current->value;
+        }
+        current = current->next;
+    }
+    return nullptr;
+}
+
+/*
+Socket::Handle* Task::get_socket_handle_by_port(uint16_t port) {
+    auto current = this->socket_handles.head;
+    while (current != nullptr) {
+        if (current->value->port == port) {
+            return current->value;
+        }
+        current = current->next;
+    }
+    return nullptr;
+}
+*/
 
 Task::~Task() {
     // Free the stack

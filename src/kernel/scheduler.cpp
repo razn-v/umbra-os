@@ -164,4 +164,15 @@ void wake_io(Keyboard::KeyboardEvent kb_event) {
     }
 }
 
+// FIXME: should be removed and merged with `wake_io` for all events...
+void wake_net() {
+    auto current = queue.front;
+    while (current != nullptr) {
+        if (current->task->status == Task::Status::WaitingIo) {
+            current->task->status = Task::Status::Running;
+        }
+        current = current->next;
+    }
+}
+
 }

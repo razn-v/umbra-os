@@ -1,1 +1,1 @@
-qemu-system-x86_64 -m 512M -device pvpanic -serial stdio -d cpu_reset -cdrom image.iso -s -S &
+qemu-system-x86_64 -m 512M -device pvpanic -serial stdio -d cpu_reset -cdrom image.iso -netdev user,id=net0,hostfwd=udp::4444-:80,net=192.168.1.0/24 -device e1000,netdev=net0,id=ck_nic0 -object filter-dump,id=net0,netdev=net0,file=qemulog.log

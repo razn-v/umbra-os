@@ -6,6 +6,7 @@ namespace Interrupt {
 
 #define TIMER_VECT    32 
 #define KEYBOARD_VECT 33
+#define E1000_VECT    43 
 #define SYSCALL_VECT  0xfe
 
 struct Registers {

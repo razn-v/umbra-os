@@ -91,6 +91,7 @@ void wake_futex_handles(uintptr_t pointer);
 void sleep(uint64_t ms);
 void await_io();
 void wake_io(Keyboard::KeyboardEvent kb_event);
+void wake_net();
 
 template <typename ConditionFunc>
 void block_on(ConditionFunc condition) {

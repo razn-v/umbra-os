@@ -1,9 +1,11 @@
+#pragma once
+
 #include <stdint.h>
 
 namespace IoPort {
 
 template <typename T>
-static void out_port(uint16_t port, T value) {
+void out_port(uint16_t port, T value) {
     if constexpr (sizeof(T) == 1) {
         asm volatile("outb %1, %0" : : "d"(port), "a"(value));
     } else if constexpr (sizeof(T) == 2) {
@@ -14,7 +16,7 @@ static void out_port(uint16_t port, T value) {
 }
 
 template <typename T>
-static T in_port(uint16_t port) {
+T in_port(uint16_t port) {
     T value;
 
     if constexpr (sizeof(T) == 1) {

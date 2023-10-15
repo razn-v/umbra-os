@@ -8,9 +8,11 @@
 #include <kernel/scheduler.hpp>
 #include <kernel/fs/tmpfs.hpp>
 #include <kernel/fs/initramfs.hpp>
-#include <kernel/dev/tty.hpp>
+#include <kernel/drivers/tty.hpp>
 #include <kernel/timer.hpp>
 #include <kernel/elf.hpp>
+#include <kernel/drivers/pci.hpp>
+#include <kernel/drivers/e1000.hpp>
 
 // Halt and catch fire function.
 static void hcf(void) {
@@ -49,6 +51,8 @@ static inline uint64_t read_cr4(void) {
 static inline void write_cr4(uint64_t value) {
     asm volatile ("mov %0, %%cr4" :: "r"(value) : "memory");
 }
+
+void kernel_main();
 
 extern "C" void _start(void) {
     // Ensure we got a framebuffer
@@ -100,13 +104,27 @@ extern "C" void _start(void) {
     uint64_t cr4 = read_cr4();
     cr4 |= (uint64_t)3 << 9;
     write_cr4(cr4);
+ 
+    // We need a task for the kernel because some devices need to sleep to be initialized, which 
+    // is only possible inside a task
+    auto kernel_task = Task::create("kernel_main", (void(*)())kernel_main);
+
+    // Initialize the scheduler
+    Scheduler::init();
+    Scheduler::add_task(kernel_task);
+
+    hcf();
+}
+
+void kernel_main() {
+    Pci::init();
 
     // Loading the initial ELF
     auxval init_auxv, ld_auxv;
     char* ld_path;
     Vmm::AddressSpace* space = Vmm::new_space();
 
-    auto fd = Vfs::open("/doomgeneric", Vfs::OpenMode::ReadOnly);
+    auto fd = Vfs::open("/ping", Vfs::OpenMode::ReadOnly);
     Elf::load(space, fd, 0x0, &init_auxv, &ld_path);
     auto ld = Vfs::open(ld_path, Vfs::OpenMode::ReadOnly);
     Elf::load(space, ld, 0x40000000, &ld_auxv, NULL);
@@ -118,9 +136,6 @@ extern "C" void _start(void) {
     Vfs::close(fd);
     Vfs::close(ld);
 
-    // Initialize the scheduler
-    Scheduler::init();
     Scheduler::add_task(elf_test);
-
     hcf();
 }

@@ -5,6 +5,7 @@
 #include <kernel/drivers/keyboard.hpp>
 #include <kernel/timer.hpp>
 #include <kernel/syscalls/handler.hpp>
+#include <kernel/drivers/e1000.hpp>
 
 namespace Interrupt {
 
@@ -14,6 +15,7 @@ void init() {
     Interrupt::set_handler(TIMER_VECT, Timer::Pit::handler);
     Interrupt::set_handler(KEYBOARD_VECT, Keyboard::handler);
     Interrupt::set_handler(SYSCALL_VECT, Syscall::handler);
+    Interrupt::set_handler(E1000_VECT, E1000::handler);
 }
 
 extern "C" uintptr_t int_dispatch(Registers* regs) {

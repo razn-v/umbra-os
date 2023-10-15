@@ -20,6 +20,10 @@
     SYSCALL(ClockGet, sys_clock_get) \
     SYSCALL(Sleep, sys_sleep) \
     SYSCALL(GetKbEvent, sys_get_kb_event) \
+    SYSCALL(CreateSocket, sys_socket) \
+    SYSCALL(SendMsg, sys_send_msg) \
+    SYSCALL(RecvMsg, sys_recv_msg) \
+    SYSCALL(SetSocketOpt, sys_set_sock_opt) \
 
 #define SYSCALL(code, handler) code, 
 enum SyscallCode {

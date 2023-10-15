@@ -36,4 +36,5 @@ iso_root/
 sysroot/
 toolchain/
 *.iso
+qemulog.log
 TODO.md

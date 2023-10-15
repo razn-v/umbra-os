@@ -1,4 +1,4 @@
-#include <kernel/dev/tty.hpp>
+#include <kernel/drivers/tty.hpp>
 #include <kernel/terminal.hpp>
 #include <kernel/scheduler.hpp>
 #include <kernel/int.hpp>
